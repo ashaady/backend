@@ -16,6 +16,12 @@ uvicorn main:app --reload --host 127.0.0.1 --port 8000
 - `ACCESS_DATABASE_URL` (defaut: `sqlite:///./access.db`)
 - `ACCESS_BACKEND_API_KEY` (defaut: `dev-local-access-key`)
 - `ACCESS_ALLOWED_ORIGINS` (defaut: `*`)
+- `ACCESS_ALLOWED_ORIGIN_REGEX` (optionnel, ex: `^https://.*\\.onrender\\.com$`)
+- `ACCESS_CORS_ALLOW_CREDENTIALS` (defaut: `true`; ignore automatiquement si `ACCESS_ALLOWED_ORIGINS=*`)
+
+Exemple Render (frontend + backend sur Render):
+- `ACCESS_ALLOWED_ORIGINS=https://votre-frontend.onrender.com`
+- ou `ACCESS_ALLOWED_ORIGIN_REGEX=^https://.*\\.onrender\\.com$`
 
 ## Structure
 
