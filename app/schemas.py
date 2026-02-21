@@ -64,6 +64,11 @@ class RejectRequest(BaseModel):
     reason: Optional[str] = Field(default=None, max_length=500)
 
 
+class DeleteUserResponse(BaseModel):
+    clerk_user_id: str
+    deleted_messages_count: int
+
+
 class MessagingUserResponse(BaseModel):
     clerk_user_id: str
     email: Optional[str]

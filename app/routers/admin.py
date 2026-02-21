@@ -10,12 +10,14 @@ from app.schemas import (
     AdminUserResponse,
     ApproveRequest,
     CreateAdminUserRequest,
+    DeleteUserResponse,
     PendingUserResponse,
     RejectRequest,
 )
 from app.services.access_service import (
     approve_user,
     create_user_as_admin,
+    delete_user,
     get_all_users,
     get_pending_users,
     reject_user,
@@ -69,3 +71,11 @@ def reject_user_route(
 ) -> AccessProfileResponse:
     return reject_user(clerk_user_id, payload, actor, db)
 
+
+@router.delete("/users/{clerk_user_id}", response_model=DeleteUserResponse)
+def delete_user_route(
+    clerk_user_id: str,
+    db: Session = Depends(get_db),
+    actor: AccessUser = Depends(require_approved_admin),
+) -> DeleteUserResponse:
+    return delete_user(clerk_user_id, actor, db)

@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.constants import AccessRole, AccessStatus, PERMISSIONS_BY_ROLE, utcnow
-from app.models import AccessUser
+from app.models import AccessMessage, AccessUser
 from app.schemas import (
     AccessProfileResponse,
     AdminUserResponse,
     ApproveRequest,
     CreateAdminUserRequest,
+    DeleteUserResponse,
     PendingUserResponse,
     RejectRequest,
     SyncRequest,
@@ -193,3 +194,53 @@ def reject_user(
     db.refresh(user)
     return build_profile(user)
 
+
+def delete_user(
+    clerk_user_id: str,
+    actor: AccessUser,
+    db: Session,
+) -> DeleteUserResponse:
+    user = db.scalar(select(AccessUser).where(AccessUser.clerk_user_id == clerk_user_id))
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    if user.clerk_user_id == actor.clerk_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete your own admin account",
+        )
+
+    is_approved_admin = (
+        user.status == AccessStatus.approved.value and user.approved_role == AccessRole.admin.value
+    )
+    if is_approved_admin:
+        approved_admin_count = db.scalar(
+            select(func.count())
+            .select_from(AccessUser)
+            .where(
+                AccessUser.status == AccessStatus.approved.value,
+                AccessUser.approved_role == AccessRole.admin.value,
+            )
+        )
+        if not approved_admin_count or approved_admin_count <= 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot delete the last approved admin",
+            )
+
+    deleted_messages = db.execute(
+        delete(AccessMessage).where(
+            or_(
+                AccessMessage.sender_clerk_user_id == clerk_user_id,
+                AccessMessage.recipient_clerk_user_id == clerk_user_id,
+            )
+        )
+    ).rowcount
+
+    db.delete(user)
+    db.commit()
+
+    return DeleteUserResponse(
+        clerk_user_id=clerk_user_id,
+        deleted_messages_count=int(deleted_messages or 0),
+    )
