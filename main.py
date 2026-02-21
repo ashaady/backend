@@ -9,7 +9,7 @@ from app.config import (
     ACCESS_CORS_ALLOW_CREDENTIALS,
 )
 from app.db import Base, engine
-from app.routers import admin, auth, system
+from app.routers import admin, auth, messages, system
 
 
 allow_credentials = ACCESS_CORS_ALLOW_CREDENTIALS and "*" not in ACCESS_ALLOWED_ORIGINS
@@ -33,3 +33,4 @@ def startup() -> None:
 app.include_router(system.router)
 app.include_router(auth.router)
 app.include_router(admin.router)
+app.include_router(messages.router)

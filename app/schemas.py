@@ -63,3 +63,38 @@ class ApproveRequest(BaseModel):
 class RejectRequest(BaseModel):
     reason: Optional[str] = Field(default=None, max_length=500)
 
+
+class MessagingUserResponse(BaseModel):
+    clerk_user_id: str
+    email: Optional[str]
+    full_name: Optional[str]
+
+
+class SendMessageRequest(BaseModel):
+    recipient_clerk_user_id: str = Field(min_length=1, max_length=255)
+    subject: str = Field(min_length=1, max_length=200)
+    body: str = Field(min_length=1, max_length=5000)
+    reply_to_message_id: Optional[int] = None
+
+
+class MessageResponse(BaseModel):
+    id: int
+    sender_clerk_user_id: str
+    sender_email: Optional[str]
+    sender_full_name: Optional[str]
+    recipient_clerk_user_id: str
+    recipient_email: Optional[str]
+    recipient_full_name: Optional[str]
+    subject: str
+    body: str
+    reply_to_message_id: Optional[int]
+    read_at: Optional[datetime]
+    created_at: datetime
+
+
+class UnreadCountResponse(BaseModel):
+    count: int
+
+
+class ReadAllMessagesResponse(BaseModel):
+    updated_count: int
