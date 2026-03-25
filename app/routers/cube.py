@@ -5,8 +5,10 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
+from app.constants import utcnow
 from app.db import SessionLocal
-from app.models import CubeFact, Department, Account, Scenario, AuditLog
+from app.models import CubeFact, Department, Account, Scenario, AuditLog, SubmissionStatus
+from app.services.calculation_service import calculate_interest_revenue
 
 router = APIRouter(prefix="/cube", tags=["Cube"])
 
@@ -132,6 +134,19 @@ def update_cell(update: CellUpdate, db: Session = Depends(get_db)):
         CubeFact.month == update.month
     ).first()
     
+    # NEW: Check Workflow Status (Phase 4)
+    ws_status = db.query(SubmissionStatus).filter(
+        SubmissionStatus.scenario_id == update.scenario_id,
+        SubmissionStatus.department_id == update.department_id,
+        SubmissionStatus.year == update.year
+    ).first()
+    
+    if ws_status and ws_status.status in ["SUBMITTED", "APPROVED"]:
+        raise HTTPException(
+            status_code=403, 
+            detail=f"Modification interdite : Le budget est déjà {ws_status.status}."
+        )
+    
     new_val = float(update.newValue) if update.newValue is not None else 0.0
     old_value = 0.0
 
@@ -172,6 +187,17 @@ def update_cell(update: CellUpdate, db: Session = Depends(get_db)):
     db.add(audit)
     db.commit()
 
+    # Trigger Automated Calculation if this is a Driver
+    # (Assuming any update to a Driver account triggers the refresh)
+    if fact.account.type == "Driver":
+        calculate_interest_revenue(
+            db, 
+            fact.scenario_id, 
+            fact.department_id, 
+            fact.year, 
+            fact.month
+        )
+
     # Calculate Totals via SQL for this scenario
     total_val = db.query(func.sum(CubeFact.value)).filter(CubeFact.scenario_id == fact.scenario_id).scalar() or 0.0
 
@@ -191,6 +217,67 @@ def update_cell(update: CellUpdate, db: Session = Depends(get_db)):
             "departments": dept_totals
         }
     }
+
+@router.get("/status")
+def get_workflow_status(scenario_id: int, department_id: int, year: int, db: Session = Depends(get_db)):
+    """
+    Returns the current workflow status of a worksheet.
+    """
+    ws = db.query(SubmissionStatus).filter(
+        SubmissionStatus.scenario_id == scenario_id,
+        SubmissionStatus.department_id == department_id,
+        SubmissionStatus.year == year
+    ).first()
+    
+    return {
+        "status": ws.status if ws else "DRAFT",
+        "details": ws if ws else None
+    }
+
+@router.post("/status/submit")
+def submit_worksheet(scenario_id: int, department_id: int, year: int, user_id: str, db: Session = Depends(get_db)):
+    """
+    Submits a worksheet for approval. Locks it from further edits by the user.
+    """
+    ws = db.query(SubmissionStatus).filter(
+        SubmissionStatus.scenario_id == scenario_id,
+        SubmissionStatus.department_id == department_id,
+        SubmissionStatus.year == year
+    ).first()
+    
+    if not ws:
+        ws = SubmissionStatus(
+            scenario_id=scenario_id, 
+            department_id=department_id, 
+            year=year
+        )
+        db.add(ws)
+    
+    ws.status = "SUBMITTED"
+    ws.submitted_by = user_id
+    ws.submitted_at = utcnow()
+    db.commit()
+    return {"status": "SUBMITTED"}
+
+@router.post("/status/approve")
+def approve_worksheet(scenario_id: int, department_id: int, year: int, user_id: str, db: Session = Depends(get_db)):
+    """
+    Approves a submitted worksheet. Higher-level lock.
+    """
+    ws = db.query(SubmissionStatus).filter(
+        SubmissionStatus.scenario_id == scenario_id,
+        SubmissionStatus.department_id == department_id,
+        SubmissionStatus.year == year
+    ).first()
+    
+    if not ws or ws.status != "SUBMITTED":
+        raise HTTPException(status_code=400, detail="Seuls les budgets soumis peuvent être approuvés.")
+        
+    ws.status = "APPROVED"
+    ws.approved_by = user_id
+    ws.approved_at = utcnow()
+    db.commit()
+    return {"status": "APPROVED"}
 
 
 @router.post("/import")

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.constants import AccessRole, AccessStatus
 
@@ -35,6 +35,16 @@ class PendingUserResponse(BaseModel):
     full_name: Optional[str]
     requested_role: AccessRole
     created_at: datetime
+
+
+class DepartmentResponse(BaseModel):
+    id: int
+    name: str
+    parent_id: Optional[int] = None
+    currency: str
+    is_filiale: bool
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AdminUserResponse(BaseModel):
@@ -83,6 +93,17 @@ class SendMessageRequest(BaseModel):
     subject: str = Field(min_length=1, max_length=200)
     body: str = Field(min_length=1, max_length=5000)
     reply_to_message_id: Optional[int] = None
+
+
+class AccountResponse(BaseModel):
+    id: int
+    code: str
+    name: str
+    type: str # 'Revenue', 'Expense', 'Driver'
+    unit: str # 'CURRENCY', 'COUNT', 'PERCENT'
+    parent_id: Optional[int] = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MessageResponse(BaseModel):

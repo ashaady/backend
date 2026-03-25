@@ -9,7 +9,7 @@ from app.config import (
     ACCESS_CORS_ALLOW_CREDENTIALS,
 )
 from app.db import Base, engine
-from app.routers import admin, auth, messages, system, cube, dashboard, audit
+from app.routers import admin, auth, messages, system, cube, dashboard, audit, financial_statements
 
 
 allow_credentials = ACCESS_CORS_ALLOW_CREDENTIALS and "*" not in ACCESS_ALLOWED_ORIGINS
@@ -37,3 +37,4 @@ app.include_router(messages.router)
 app.include_router(cube.router)
 app.include_router(dashboard.router)
 app.include_router(audit.router)
+app.include_router(financial_statements.router)

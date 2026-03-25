@@ -23,29 +23,63 @@ def seed_db():
         session.add(global_co)
         session.commit()
         
-        depts_data = ["Direction", "Ventes", "Marketing", "R&D", "IT", "RH", "Finance"]
+        depts_data = [
+            ("Direction", False, "XOF"),
+            ("Ventes", True, "XOF"),
+            ("Marketing", True, "EUR"), # Global Marketing in EUR
+            ("R&D", True, "USD"),       # Technical R&D in USD
+            ("IT", True, "XOF"),
+            ("RH", True, "XOF"),
+            ("Finance", True, "XOF"),
+        ]
         depts = []
-        for d in depts_data:
-            dept = Department(name=d, parent_id=global_co.id)
+        for name, is_filiale, currency in depts_data:
+            dept = Department(name=name, parent_id=global_co.id, is_filiale=is_filiale, currency=currency)
             depts.append(dept)
             session.add(dept)
         session.commit()
 
+        # 3.5 Create Exchange Rates
+        from app.models import ExchangeRate
+        print("Creating Exchange Rates...")
+        rates = [
+            ExchangeRate(from_currency="XOF", to_currency="EUR", rate=0.0015, year=2024),
+            ExchangeRate(from_currency="XOF", to_currency="EUR", rate=0.0015, year=2025),
+            ExchangeRate(from_currency="USD", to_currency="EUR", rate=0.92, year=2025),
+        ]
+        session.add_all(rates)
+        session.commit()
+
         # 4. Create Accounts (Chart of Accounts)
+        # (Code, Name, Type, PL_Section, CF_Section)
         print("Creating Accounts...")
         accounts_data = [
-            ("1000", "Revenus - Licences SaaS", "Revenue"),
-            ("1100", "Revenus - Services Pro", "Revenue"),
-            ("6000", "Salaires et Charges", "Expense"),
-            ("6100", "Matériel et Équipement", "Expense"),
-            ("6200", "Logiciels et Cloud (AWS, etc.)", "Expense"),
-            ("6300", "Campagnes Marketing", "Expense"),
-            ("6400", "Déplacements et Repas", "Expense"),
-            ("6500", "Consulting Externe", "Expense"),
+            ("701", "Intérêts sur crédits", "Revenue", "INTEREST_REV", "OPERATING"),
+            ("702", "Commissions", "Revenue", "COMMISSION_REV", "OPERATING"),
+            ("601", "Intérêts sur épargne", "Expense", "INTEREST_EXP", "OPERATING"),
+            ("602", "Salaires et charges", "Expense", "PERSONNEL_EXP", "OPERATING"),
+            ("603", "Loyer et services", "Expense", "ADMIN_EXP", "OPERATING"),
+            ("604", "Provisions créances", "Expense", "LOAN_PROVISION", "OPERATING"),    # Non-cash
+            ("605", "Dotation aux amortissements", "Expense", "OTHER_EXPL_EXP", "OPERATING"), # Non-cash
+            ("101", "Capital Social", "Equity", None, "FINANCING"),
+            ("164", "Emprunts bancaires", "Liability", None, "FINANCING"),
+            ("211", "Immobilisations", "Asset", None, "INVESTING"),
+            # Drivers
+            ("DRV_GLP", "Encours de Portefeuille (GLP)", "Driver", None, None),
+            ("DRV_RATE", "Taux d'Intérêt Moyen (%)", "Driver", None, None),
         ]
         accounts = []
-        for code, name, acc_type in accounts_data:
-            acc = Account(code=code, name=name, type=acc_type)
+        for code, name, acc_type, pl_section, cf_section in accounts_data:
+            # Set unit based on code
+            unit = "PERCENT" if "RATE" in code else "CURRENCY"
+            acc = Account(
+                code=code, 
+                name=name, 
+                type=acc_type, 
+                unit=unit, 
+                pl_section=pl_section, 
+                cf_section=cf_section
+            )
             accounts.append(acc)
             session.add(acc)
         session.commit()
@@ -97,6 +131,37 @@ def seed_db():
         generate_for_scenario(actuals.id, 2024, 1.0)
         # Budget 2025 (15% overall growth target from 2024)
         generate_for_scenario(budget.id, 2025, 1.15)
+        
+        # 6. Add Intra-group Transactions (Sample for Elimination)
+        print("Adding sample Intra-group transactions...")
+        # Scenario: Nexadec Global pays 50,000 to Direction for internal consulting
+        # This should be eliminated in consolidation
+        acc_rev = next(a for a in accounts if a.code == "702") # Commission/Service Revenue
+        acc_exp = next(a for a in accounts if a.code == "603") # Admin Expense
+        dept_dir = next(d for d in depts if d.name == "Direction")
+        dept_global = global_co # Parent
+        
+        for m in range(1, 13):
+            # Direction Revenue from Global (Internal)
+            facts.append(CubeFact(
+                scenario_id=budget.id,
+                department_id=dept_dir.id,
+                partner_id=dept_global.id,
+                account_id=acc_rev.id,
+                year=2025,
+                month=m,
+                value=50000.0
+            ))
+            # Global Expense to Direction (Internal)
+            facts.append(CubeFact(
+                scenario_id=budget.id,
+                department_id=dept_global.id,
+                partner_id=dept_dir.id,
+                account_id=acc_exp.id,
+                year=2025,
+                month=m,
+                value=50000.0
+            ))
         
         # Bulk Insert
         session.bulk_save_objects(facts)
