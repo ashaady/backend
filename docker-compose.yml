@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: nexadec_user
+      POSTGRES_PASSWORD: nexadec_password
+      POSTGRES_DB: nexadec_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  nexadec-backend:
+    container_name: nexadec-backend
+    build: .
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      - ACCESS_DATABASE_URL=postgresql://nexadec_user:nexadec_password@db:5432/nexadec_db
+      - REDIS_URL=redis://redis:6379/0
+      - ACCESS_CORS_ALLOW_CREDENTIALS=true
+      - ACCESS_ALLOWED_ORIGINS=*
+      # Add your backend API key here if different from the default
+      # - ACCESS_BACKEND_API_KEY=dev-local-access-key
+    depends_on:
+      - db
+      - redis
+
+volumes:
+  postgres_data:
+  redis_data:

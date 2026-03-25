@@ -3,7 +3,8 @@ from __future__ import annotations
 import os
 
 
-DATABASE_URL = os.getenv("ACCESS_DATABASE_URL", "sqlite:///./access.db")
+DATABASE_URL = os.getenv("ACCESS_DATABASE_URL", "postgresql://nexadec_user:nexadec_password@db:5432/nexadec_db")
+REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
 ACCESS_BACKEND_API_KEY = os.getenv("ACCESS_BACKEND_API_KEY", "dev-local-access-key")
 
 

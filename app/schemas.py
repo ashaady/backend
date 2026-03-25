@@ -26,6 +26,7 @@ class AccessProfileResponse(BaseModel):
     approved_by: Optional[str]
     approved_at: Optional[datetime]
     rejection_reason: Optional[str]
+    restricted_department_id: Optional[int] = None
 
 
 class PendingUserResponse(BaseModel):
@@ -45,6 +46,7 @@ class AdminUserResponse(BaseModel):
     status: AccessStatus
     approved_by: Optional[str]
     approved_at: Optional[datetime]
+    restricted_department_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
 
@@ -58,6 +60,7 @@ class CreateAdminUserRequest(BaseModel):
 
 class ApproveRequest(BaseModel):
     approved_role: Optional[AccessRole] = None
+    restricted_department_id: Optional[int] = None
 
 
 class RejectRequest(BaseModel):

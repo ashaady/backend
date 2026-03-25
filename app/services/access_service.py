@@ -36,6 +36,7 @@ def build_profile(user: AccessUser) -> AccessProfileResponse:
         approved_by=user.approved_by,
         approved_at=user.approved_at,
         rejection_reason=user.rejection_reason,
+        restricted_department_id=user.restricted_department_id,
     )
 
 
@@ -118,6 +119,7 @@ def get_all_users(db: Session) -> list[AdminUserResponse]:
             status=AccessStatus(user.status),
             approved_by=user.approved_by,
             approved_at=user.approved_at,
+            restricted_department_id=user.restricted_department_id,
             created_at=user.created_at,
             updated_at=user.updated_at,
         )
@@ -163,6 +165,8 @@ def approve_user(
     approved_role = payload.approved_role.value if payload.approved_role else user.requested_role
     user.status = AccessStatus.approved.value
     user.approved_role = approved_role
+    if payload.restricted_department_id is not None:
+        user.restricted_department_id = payload.restricted_department_id
     user.approved_by = actor.clerk_user_id
     user.approved_at = utcnow()
     user.rejection_reason = None
